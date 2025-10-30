@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>顯示遠端 txt 內容</title>
+  <style>
+    body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", "Helvetica Neue", Arial; padding: 20px; background:#f7f7f7; }
+    h1 { font-size: 1.2rem; }
+    pre { white-space: pre-wrap; word-wrap:break-word; background:#fff; padding:12px; border:1px solid #ddd; border-radius:6px; max-height:70vh; overflow:auto; }
+    #status { margin-bottom:10px; color:#666; }
+    a.small { font-size:0.9rem; color:#0366d6; }
+  </style>
+</head>
+<body>
+  <h1>顯示遠端 txt 內容</h1>
+  <div id="status">載入中…</div>
+  <pre id="content">如果你看到這行，表示還沒載入內容。</pre>
+  <p><a id="previewLink" class="small" target="_blank" rel="noopener">原始檔案預覽（在 Google Drive 開啟）</a></p>
+
+<script>
+(async function(){
+  const fileId = '1R6oUS3r8cCRos7N8TDIlRZ1svaR3wTm2';
+  const driveDownloadUrl = `https://drive.google.com/uc?export=download&id=${fileId}`;
+  document.getElementById('previewLink').href = `https://drive.google.com/file/d/${fileId}/view`;
+
+  const statusEl = document.getElementById('status');
+  const contentEl = document.getElementById('content');
+
+  // 先嘗試讀取本 repo 的 content.txt（同源，沒有 CORS 問題）
+  async function tryLocal() {
+    try {
+      const r = await fetch('content.txt', {cache: "no-store"});
+      if (!r.ok) throw new Error('no local');
+      const txt = await r.text();
+      return txt;
+    } catch(e) {
+      return null;
+    }
+  }
+
+  // 再嘗試從 Google Drive 的下載 URL 直接 fetch（有可能被 CORS 擋）
+  async function tryDrive() {
+    try {
+      const r = await fetch(driveDownloadUrl, {mode:'cors', cache: "no-store"});
+      if (!r.ok) throw new Error('drive fetch not ok: ' + r.status);
+      const txt = await r.text();
+      return txt;
+    } catch(e) {
+      throw e;
+    }
+  }
+
+  try {
+    statusEl.textContent = '嘗試讀取本站內容（content.txt）…';
+    let txt = await tryLocal();
+    if (txt !== null) {
+      contentEl.textContent = txt;
+      statusEl.textContent = '已從此站讀取 content.txt（來自 GitHub repo）';
+      return;
+    }
+
+    statusEl.textContent = '未找到 content.txt，改從 Google Drive 嘗試下載（可能會被瀏覽器封鎖）…';
+    txt = await tryDrive();
+    contentEl.textContent = txt;
+    statusEl.textContent = '已從 Google Drive 下載並顯示內容（若顯示正常代表未被 CORS 擋）';
+  } catch (err) {
+    statusEl.textContent = '載入失敗：無法直接從 Google Drive 取得內容（可能是 CORS 限制）。';
+    contentEl.textContent = '錯誤：' + String(err) + '\n\n請參照說明，使用 GitHub Actions 將檔案同步到 repo（content.txt），或直接把 txt 的內容貼到 repo。';
+    console.error(err);
+  }
+})();
+</script>
+</body>
+</html>
